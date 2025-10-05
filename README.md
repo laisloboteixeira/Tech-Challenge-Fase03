@@ -40,9 +40,6 @@ Agora incluindo **condições do tempo** (WMO `weathercode`), **probabilidade de
   - ver **gráfico de probabilidade de chuva** (0–100%) em **barras** com marcador do “agora”;
   - (opcional) **prever a próxima hora** com o modelo treinado.
 
-> 🔎 **Dedupe inteligente**: inserimos só linhas **novas** via `SELECT … EXCEPT …` no DuckDB.  
-> ⏱️ **Timezone**: salvamos `ts` em **UTC (naive)**; comparações no app são **tz-aware**.
-
 ---
 
 ## Arquitetura
@@ -101,8 +98,8 @@ FastAPI (/collect, /backfill) ───► DuckDB (raw.weather_hourly)
 ## Setup rápido
 ### Windows (PowerShell)
 ```powershell
-git clone <SEU_REPO_AQUI>.git
-cd <SEU_REPO_AQUI>
+git clone https://github.com/laisloboteixeira/Tech-Challenge-Fase03.git
+cd Tech-Challenge-Fase03
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
@@ -112,8 +109,8 @@ pip install streamlit fastapi uvicorn duckdb pandas requests altair
 
 ### Linux/macOS (bash)
 ```bash
-git clone <SEU_REPO_AQUI>.git
-cd <SEU_REPO_AQUI>
+git clone https://github.com/laisloboteixeira/Tech-Challenge-Fase03.git
+cd Tech-Challenge-Fase03
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
