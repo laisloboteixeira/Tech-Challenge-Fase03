@@ -2,29 +2,25 @@
 # App Streamlit: histórico + previsão da PRÓXIMA hora (t+1h)
 # - Seleção de cidade ou coordenadas
 # - Hora local do lugar + último registro local + Δh
-# - Limpeza SOMENTE dos dados brutos (raw.weather_hourly): por cidade ou geral
 # - Coleta via API (collect/backfill)
-# - Gráfico no fuso da cidade
-# - Alinha features com as do treino (feature_cols.json) antes de prever
+# - Limpeza SOMENTE de dados brutos (raw.weather_hourly): por cidade ou geral
+# - Gráfico no fuso da cidade (dedup por hora + gaps explícitos)
+# - Inferência alinhada às features do treino (feature_cols.json)
+# - Mantém: render_conditions (sua feature extra)
 
 # --- garantir que a raiz do projeto esteja no sys.path (para importar src/*) ---
-
-# >>> ADIÇÃO <<<
 import sys
 from pathlib import Path
 
-# adiciona a pasta raiz (que contém "src") no PYTHONPATH
-ROOT = Path(__file__).resolve().parents[2]  # ...\Tech Challenge 3
-if str(ROOT) not in sys.path:
-    sys.path.insert(0, str(ROOT))
-from src.app.conditions import render_conditions
-
-import sys
-from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
-# -----------------------------------------------------------------------------
+# ------------------------------------------------------------------------------
+# sua feature extra (mantido)
+try:
+    from src.app.conditions import render_conditions
+except Exception:
+    render_conditions = None  # caso o arquivo não exista, o app continua
 
 import json
 import requests
@@ -51,10 +47,7 @@ st.title("🌦️ Previsão de Temperatura (Próxima Hora)")
 # Utilitários
 # ---------------------------
 def get_timezone_for(lat: float, lon: float) -> str:
-    """
-    Descobre o fuso da localidade consultando diretamente a Open-Meteo
-    (não insere nada no DB).
-    """
+    """Descobre o fuso da localidade consultando a Open-Meteo (não grava no DB)."""
     try:
         url = (
             "https://api.open-meteo.com/v1/forecast"
@@ -66,25 +59,30 @@ def get_timezone_for(lat: float, lon: float) -> str:
     except Exception:
         return "UTC"
 
-def get_last_ts_utc() -> pd.Timestamp | None:
-    """Lê o MAX(ts) da tabela raw.weather_hourly (UTC / naive)."""
+
+def get_last_ts_utc_for(lat: float, lon: float):
+    """MAX(ts) para a cidade atual (UTC, naive)."""
     if not DB_PATH.exists():
         return None
     con = duckdb.connect(DB_PATH.as_posix())
     try:
-        # tabela pode não existir ainda
-        return con.execute("SELECT MAX(ts) FROM raw.weather_hourly").fetchone()[0]
+        return con.execute(
+            """
+            SELECT MAX(ts)
+            FROM raw.weather_hourly
+            WHERE round(latitude,4)=round(?,4)
+              AND round(longitude,4)=round(?,4)
+            """,
+            [lat, lon],
+        ).fetchone()[0]
     except Exception:
         return None
     finally:
         con.close()
 
+
 def delete_raw_city(lat: float, lon: float) -> int:
-    """
-    Remove SOMENTE as linhas da cidade atual (lat/lon) da tabela raw.weather_hourly.
-    Usa arredondamento a 4 casas para evitar problemas de float.
-    Retorna o nº de linhas removidas.
-    """
+    """Remove SOMENTE linhas da cidade atual."""
     if not DB_PATH.exists():
         return 0
     con = duckdb.connect(DB_PATH.as_posix())
@@ -92,14 +90,16 @@ def delete_raw_city(lat: float, lon: float) -> int:
         n = con.execute(
             """
             SELECT COUNT(*) FROM raw.weather_hourly
-            WHERE round(latitude,4)=round(?,4) AND round(longitude,4)=round(?,4)
+            WHERE round(latitude,4)=round(?,4)
+              AND round(longitude,4)=round(?,4)
             """,
             [lat, lon],
         ).fetchone()[0]
         con.execute(
             """
             DELETE FROM raw.weather_hourly
-            WHERE round(latitude,4)=round(?,4) AND round(longitude,4)=round(?,4)
+            WHERE round(latitude,4)=round(?,4)
+              AND round(longitude,4)=round(?,4)
             """,
             [lat, lon],
         )
@@ -109,11 +109,9 @@ def delete_raw_city(lat: float, lon: float) -> int:
     finally:
         con.close()
 
+
 def delete_raw_all() -> int:
-    """
-    Remove TODAS as linhas da tabela raw.weather_hourly (não mexe em refined/modelos).
-    Retorna o nº de linhas removidas.
-    """
+    """Remove TODAS as linhas da tabela bruta (não mexe em refined/modelos)."""
     if not DB_PATH.exists():
         return 0
     con = duckdb.connect(DB_PATH.as_posix())
@@ -125,6 +123,69 @@ def delete_raw_all() -> int:
         return 0
     finally:
         con.close()
+
+
+def load_city_raw(lat: float, lon: float):
+    """
+    Lê APENAS a cidade selecionada, ordenada, e devolve:
+    - df_agg: 1 ponto por hora (média) em UTC tz-aware ('ts_utc') + colunas climáticas
+              + 'ts' (UTC naive) para compatibilidade com make_features
+    - df_local: com 'ts_local' no fuso detectado, contínuo de 1h (gaps = NaN)
+    - tz: timezone da cidade
+    """
+    if not DB_PATH.exists():
+        return pd.DataFrame(), pd.DataFrame(), "UTC"
+
+    tz = get_timezone_for(lat, lon)
+    now_utc = pd.Timestamp.now("UTC").floor("H")
+
+    con = duckdb.connect(DB_PATH.as_posix())
+    df = con.execute(
+        """
+        SELECT *
+        FROM raw.weather_hourly
+        WHERE round(latitude,4)=round(?,4)
+          AND round(longitude,4)=round(?,4)
+        ORDER BY ts
+        """,
+        [lat, lon],
+    ).df()
+    con.close()
+
+    if df.empty:
+        return df, df, tz  # vazio
+
+    # 1) normaliza ts em UTC (tz-aware) + uma linha por HORA (média) e remove futuro
+    df["ts_utc"] = pd.to_datetime(df["ts"]).dt.tz_localize("UTC").dt.floor("H")
+    df_agg = (
+        df.groupby("ts_utc", as_index=False)
+        .agg(
+            {
+                "temperature_2m": "mean",
+                "relative_humidity_2m": "mean",
+                "precipitation": "mean",
+                "wind_speed_10m": "mean",
+                "latitude": "first",
+                "longitude": "first",
+            }
+        )
+    )
+    df_agg = df_agg[df_agg["ts_utc"] <= now_utc]
+
+    # 2) versão local para gráficos/tabela (index contínuo H)
+    df_local = df_agg.copy()
+    df_local["ts_local"] = df_local["ts_utc"].dt.tz_convert(tz)
+    df_local = (
+        df_local.set_index("ts_local")
+        .asfreq("H")  # cria a grade horária, gaps ficam como NaN -> o gráfico "quebra"
+        .sort_index()
+    )
+
+    # 3) coluna 'ts' naive UTC para features (compatível com make_features)
+    df_agg["ts"] = df_agg["ts_utc"].dt.tz_convert("UTC").dt.tz_localize(None)
+
+    return df_agg, df_local, tz
+
 
 # ---------------------------
 # Seleção do local
@@ -172,17 +233,18 @@ with st.sidebar:
             r = requests.get(
                 f"{API_BASE}/collect",
                 params={"latitude": lat, "longitude": lon, "past_hours": 6},
-                timeout=20,
+                timeout=30,
             )
             st.success(r.json())
         except Exception as e:
             st.error(str(e))
+
     if st.button("📦 Backfill (últimos 30 dias)"):
         try:
             r = requests.post(
                 f"{API_BASE}/backfill",
                 params={"latitude": lat, "longitude": lon, "days": 30},
-                timeout=60,
+                timeout=120,
             )
             st.success(r.json())
         except Exception as e:
@@ -190,23 +252,29 @@ with st.sidebar:
 
     st.divider()
     st.subheader("🕒 Hora local & status")
-    tz = get_timezone_for(lat, lon)
-    now_local = pd.Timestamp.now(tz).floor("H")
-    last_utc = get_last_ts_utc()
-    if last_utc is not None:
-        last_local = pd.Timestamp(last_utc, tz="UTC").tz_convert(tz)
+    tz_sidebar = get_timezone_for(lat, lon)
+    now_local = pd.Timestamp.now(tz_sidebar).floor("H")
+    last_utc_city = get_last_ts_utc_for(lat, lon)
+    if last_utc_city is not None:
+        last_local = pd.Timestamp(last_utc_city, tz="UTC").tz_convert(tz_sidebar)
         delta_h = (now_local - last_local) / pd.Timedelta(hours=1)
-        st.write(f"**Timezone:** {tz}")
+        st.write(f"**Timezone:** {tz_sidebar}")
         st.write(f"**Agora (local):** {now_local}")
         st.write(f"**Último registro (local):** {last_local}")
+        st.write(f"**Δ horas (atraso):** {delta_h:.1f} h")
 
-        render_conditions(DB_PATH=DB_PATH, latitude=lat, longitude=lon, tz=tz) # >>> ADIÇÃO <<<
+        # sua seção extra (se existir)
+        if render_conditions is not None:
+            try:
+                render_conditions(DB_PATH=DB_PATH, latitude=lat, longitude=lon, tz=tz_sidebar)
+            except Exception as e:
+                st.info(f"(conditions) {e}")
     else:
-        st.info(f"Timezone: {tz}\n\nSem registros ainda — faça o backfill/coleta.")
+        st.info(f"Timezone: {tz_sidebar}\n\nSem registros ainda — faça o backfill/coleta.")
 
     st.divider()
     st.subheader("🧹 Limpar DADOS BRUTOS (raw)")
-    st.caption("Remove apenas linhas da tabela raw.weather_hourly. Não mexe em features/modelos.")
+    st.caption("Remove apenas linhas de `raw.weather_hourly`. Não mexe em features/modelos.")
 
     col_a, col_b = st.columns(2)
     with col_a:
@@ -223,27 +291,22 @@ with st.sidebar:
             st.experimental_rerun()
 
 # ---------------------------
-# Carregar dados do DuckDB
+# Carregar dados da cidade
 # ---------------------------
 if not DB_PATH.exists():
     st.warning("Banco DuckDB não encontrado. Rode a API /backfill ou /collect primeiro.")
     st.stop()
 
-con = duckdb.connect(DB_PATH.as_posix())
-df = con.execute("SELECT * FROM raw.weather_hourly ORDER BY ts").df()
-con.close()
-
-if df.empty:
-    st.warning("Sem dados ainda. Use os botões na barra lateral para coletar.")
+df_agg, df_local, tz = load_city_raw(lat, lon)
+if df_agg.empty:
+    st.warning("Sem dados para esta cidade. Faça backfill/coleta.")
     st.stop()
 
-df_local = df.copy()
-df_local["ts_local"] = (
-    pd.to_datetime(df_local["ts"]).dt.tz_localize("UTC").dt.tz_convert(tz)
-)
+# ---------------------------
+# Gráfico principal (últimas 48h) — sem serrilhado e com gaps visíveis
+# ---------------------------
 st.write(f"Fuso da cidade: **{tz}**")
-st.line_chart(df_local.set_index("ts_local")["temperature_2m"].tail(48))
-
+st.line_chart(df_local["temperature_2m"].tail(48))
 
 # ---------------------------
 # Carregar modelo e lista de features do treino
@@ -262,18 +325,18 @@ with open(FEATURES_PATH, "r", encoding="utf-8") as f:
 # ---------------------------
 # Gerar features atuais e ALINHAR ao conjunto do treino
 # ---------------------------
-feat = make_features(df)
+# Para features, usamos df_agg (1/h em UTC) com coluna 'ts' (naive/UTC)
+feat = make_features(df_agg.copy())
 if len(feat) == 0:
     st.warning("Ainda não há features suficientes (rode mais coletas ou o backfill).")
     st.stop()
 
 X = feat.drop(columns=["temp_t_plus_1h", "ts"], errors="ignore")
 
-# adiciona colunas faltantes com zero
+# adiciona colunas faltantes com zero e ordena exatamente como no treino
 for c in feature_cols:
     if c not in X.columns:
         X[c] = 0
-# mantém exatamente as colunas do treino e na mesma ordem (remove extras)
 X = X[feature_cols]
 
 # ---------------------------
@@ -285,18 +348,22 @@ y_hat = model.predict(x_last)[0]
 st.subheader("🔮 Previsão (próxima hora)")
 st.metric("Temperatura prevista", f"{y_hat:.2f} °C")
 
-# gráfico com ponto previsto (+1h) em hora local
+# gráfico com ponto previsto (+1h) no fuso local
 fig, ax = plt.subplots()
-hist = df_local.set_index("ts_local")["temperature_2m"].tail(24)
+hist = df_local["temperature_2m"].tail(24)
 hist.plot(ax=ax)
-ax.scatter([hist.index[-1] + pd.Timedelta(hours=1)], [y_hat], marker="x")
+if not hist.index.empty:
+    ax.scatter([hist.index[-1] + pd.Timedelta(hours=1)], [y_hat], marker="x")
 ax.set_title("Últimas 24h (local) + ponto previsto (+1h)")
+ax.set_ylabel("ºC")
 st.pyplot(fig)
 
+# ---------------------------
+# Tabela exploratória + download
+# ---------------------------
 with st.expander("🔎 Ver dados (tabela)"):
     st.caption(f"Fuso da cidade: **{tz}**")
 
-    # label dinâmico do slider
     if "n_hours" not in st.session_state:
         st.session_state.n_hours = 168
     st.markdown(f"Mostrar últimas **{st.session_state.n_hours}** horas")
@@ -306,35 +373,23 @@ with st.expander("🔎 Ver dados (tabela)"):
     )
     n = st.session_state.n_hours
 
-    # inclui lat/lon na tabela (arredondadas) + ordena colunas
+    last_lat = df_agg["latitude"].round(4).iloc[-1]
+    last_lon = df_agg["longitude"].round(4).iloc[-1]
     df_view = (
-        df_local
-        .assign(
-            latitude=lambda d: d["latitude"].round(4),
-            longitude=lambda d: d["longitude"].round(4),
-        )
-        [["ts_local", "latitude", "longitude", "temperature_2m"]]
+        df_local[["temperature_2m"]]
         .tail(n)
+        .reset_index()
+        .assign(latitude=last_lat, longitude=last_lon)
+        [["ts_local", "latitude", "longitude", "temperature_2m"]]
     )
 
-    st.dataframe(
-        df_view,
-        use_container_width=True,
-        height=350,
-        # (opcional) formatação de colunas:
-        # column_config={
-        #     "latitude": st.column_config.NumberColumn(format="%.4f"),
-        #     "longitude": st.column_config.NumberColumn(format="%.4f"),
-        # }
-    )
+    st.dataframe(df_view, use_container_width=True, height=350)
+    st.write("Total de linhas no banco (cidade):", len(df_local))
 
-    st.write("Total de linhas no banco:", len(df))
-
-    # download do recorte mostrado (inclui lat/lon e N horas)
     csv = df_view.to_csv(index=False).encode("utf-8")
     st.download_button(
         "⬇️ Baixar CSV (recorte mostrado)",
         data=csv,
-        file_name=f"weather_last_{n}_hours_{lat:.4f}_{lon:.4f}.csv",
+        file_name=f"weather_last_{n}_hours_{last_lat:.4f}_{last_lon:.4f}.csv",
         mime="text/csv",
     )
