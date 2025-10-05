@@ -1,5 +1,5 @@
 # Tech Challenge – Fase 3 (FIAP)
-## Previsão de Temperatura **e Condições** em Tempo *Quase* Real (Open-Meteo + FastAPI + DuckDB + Streamlit)
+## Previsão de Temperatura **e Condições** em Tempo (Open-Meteo + FastAPI + DuckDB + Streamlit)
 
 Projeto completo para **coletar dados horários de clima**, armazenar em **DuckDB**, (opcional) **treinar um modelo de ML** e disponibilizar um **dashboard** (Streamlit).  
 Agora incluindo **condições do tempo** (WMO `weathercode`), **probabilidade de chuva**, **cobertura de nuvens**, **sensação térmica**, **timeline das próximas 6h** e **gráfico de probabilidade** com marcador do “agora”.
