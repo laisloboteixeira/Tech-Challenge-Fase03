@@ -111,11 +111,9 @@ def render_conditions(DB_PATH, latitude: float, longitude: float, tz: str):
     df = df.dropna(subset=["ts"]).sort_values("ts")
 
     # prob. de chuva com fallback (quando API não trouxer)
-    rain_codes = {51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 80, 81, 82, 95, 96, 99}
-    df["pop"] = df.get("precipitation_probability")
-    df.loc[df["pop"].isna() & df["weathercode"].isin(list(rain_codes)), "pop"] = 70.0
-    df.loc[df["pop"].isna() & (df["precipitation"] > 0), "pop"] = 50.0
-    df["pop"] = df["pop"].clip(0, 100)
+    df["pop"] = pd.to_numeric(df.get("precipitation_probability"), errors="coerce")
+    # Observação: quando não houver esse campo na resposta da API, ficará NaN
+    # e a UI mostrará "—" (ou nada nos ícones), evitando qualquer valor “inventado”.
 
     now_utc = pd.Timestamp.now(tz="UTC")
     now_row = df[df["ts"] <= now_utc].tail(1)
@@ -161,7 +159,6 @@ def render_conditions(DB_PATH, latitude: float, longitude: float, tz: str):
 
     # gráfico de prob. de chuva (barras) com marcador do "agora"
     df_plot = df.assign(local=df["ts"].dt.tz_convert(tz))
-    df_plot["pop"] = df_plot["pop"].fillna(0)
 
     bars = (
         alt.Chart(df_plot)
@@ -186,5 +183,10 @@ def render_conditions(DB_PATH, latitude: float, longitude: float, tz: str):
     # alertas simples
     if (pd.to_numeric(df["weathercode"], errors="coerce") >= 95).any():
         st.warning("⚠️ Possibilidade de **tempestade** nas próximas horas.")
-    if pd.to_numeric(df["temperature_2m"], errors="coerce").max() >= 37:
-        st.warning("🥵 **Onda de calor** (≥ 37 °C) detectada.")
+        
+    # Onda de calor: considerar APENAS as próximas 6h (sem depender de nxt6)
+    window6h = df[(df["ts"] > now_utc) & (df["ts"] <= now_utc + pd.Timedelta(hours=6))]
+    if not window6h.empty:
+        max6h = pd.to_numeric(window6h["temperature_2m"], errors="coerce").max()
+        if pd.notna(max6h) and max6h >= 37:
+            st.warning("🥵 **Onda de calor** (≥ 37 °C) detectada.")
