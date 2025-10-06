@@ -11,7 +11,7 @@ Inclui **condições do tempo (WMO)**, **probabilidade de chuva**, **cobertura d
 ---
 
 ## 🔗 Sumário
-- [🎥YouTube](#YouTube)
+- [🎥 Vídeo demonstrativo](#-vídeo-demonstrativo)
 - [Visão geral](#visão-geral)
 - [Arquitetura](#arquitetura)
 - [Estrutura do repositório](#estrutura-do-repositório)
@@ -34,7 +34,7 @@ Inclui **condições do tempo (WMO)**, **probabilidade de chuva**, **cobertura d
 
 ---
 
-## 🎥 YouTube
+## 🎥 Vídeo demonstrativo
 > Clique na imagem abaixo para assistir à demonstração completa do projeto no YouTube:
 
 [![Tech Challenge – Fase 3 (FIAP)](https://img.youtube.com/vi/U8TE81XCi4A/maxresdefault.jpg)](https://youtu.be/U8TE81XCi4A)
