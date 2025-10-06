@@ -2,8 +2,7 @@
 ## Previsão de Temperatura **e Condições em Tempo Real**
 *(Open-Meteo + FastAPI + DuckDB + Streamlit)*
 
-Projeto completo para **coletar dados horários de clima**, armazenar em **DuckDB**, **treinar um modelo de ML** e disponibilizar um **dashboard interativo (Streamlit)**.  
-Inclui **condições do tempo (WMO)**, **probabilidade de chuva**, **cobertura de nuvens**, **sensação térmica**, **timeline das próximas 6h** e **gráfico de probabilidade** com marcador do “agora”.
+Projeto completo para **coletar dados horários de clima**, armazenar em **DuckDB**, **treinar um modelo de ML** e disponibilizar um **dashboard interativo (Streamlit)**. Inclui **condições do tempo (WMO)**, **probabilidade de chuva**, **cobertura de nuvens**, **sensação térmica**, **timeline das próximas 6h** e **gráfico de probabilidade**
 
 ---
 
