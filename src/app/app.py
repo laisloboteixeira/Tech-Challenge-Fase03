@@ -32,7 +32,7 @@ import matplotlib.pyplot as plt
 
 from src.processing.prepare_data import make_features  # MESMAS features do treino
 
-# ---------------------------
+# --------------------------- 
 # Caminhos e configs
 # ---------------------------
 DB_PATH = ROOT / "data" / "rt_weather.duckdb"
