@@ -7,7 +7,7 @@ Projeto completo para **coletar dados horários de clima**, armazenar em **DuckD
 ---
 
 ## 🔗 Sumário
-- [Vídeo demonstrativo](#-vídeo-demonstrativo)
+- [Vídeo demonstrativo](#vídeo-demonstrativo)
 - [Visão geral](#visão-geral)
 - [Arquitetura](#arquitetura)
 - [Estrutura do repositório](#estrutura-do-repositório)
@@ -26,7 +26,7 @@ Projeto completo para **coletar dados horários de clima**, armazenar em **DuckD
 - [Utilitários](#utilitários)
 - [Resolução de problemas](#resolução-de-problemas)
 - [Critérios do Tech Challenge](#critérios-do-tech-challenge)
-- [Equipe](#-equipe)
+- [Equipe](#equipe)
 - [Licença](#licença)
 
 ---
