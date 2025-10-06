@@ -5,9 +5,6 @@
 Projeto completo para **coletar dados horários de clima**, armazenar em **DuckDB**, **treinar um modelo de ML** e disponibilizar um **dashboard interativo (Streamlit)**.  
 Inclui **condições do tempo (WMO)**, **probabilidade de chuva**, **cobertura de nuvens**, **sensação térmica**, **timeline das próximas 6h** e **gráfico de probabilidade** com marcador do “agora”.
 
-🎥 **Demonstração do Projeto:**  
-[![YouTube](https://img.youtube.com/vi/U8TE81XCi4A/hqdefault.jpg)](https://youtu.be/U8TE81XCi4A)
-
 ---
 
 ## 🔗 Sumário
@@ -55,49 +52,42 @@ Inclui **condições do tempo (WMO)**, **probabilidade de chuva**, **cobertura d
 ---
 
 ## Arquitetura
-\`\`\`
 Open-Meteo (forecast/archive)
-           │
-           ▼
+│
+▼
 FastAPI (/collect, /backfill) ───► DuckDB (raw.weather_hourly)
-           │                              │
-           │                              └─► Parquet (features)  [prepare_data.py]
-           │
-           └────────► Streamlit (app.py) ◄─────────┐
-                      • condições “agora”/“próxima hora”   │
-                      • próximas 6h (emojis)               ├─ (opcional) usa modelo treinado
-                      • gráfico prob. de chuva (0–100%)    │
-                      • exportações                         ┘
-\`\`\`
+│ │
+│ └─► Parquet (features) [prepare_data.py]
+│
+└────────► Streamlit (app.py) ◄─────────┐
+• condições “agora”/“próxima hora” │
+• próximas 6h (emojis) ├─ (opcional) usa modelo treinado
+• gráfico prob. de chuva (0–100%) │
+• exportações ┘
 
 ---
 
 ## Estrutura do repositório
-\`\`\`
-.
 ├── data/
-│   ├── refined/                     # features .parquet (gerado)
-│   └── rt_weather.duckdb            # banco DuckDB (gerado)
-├── models/                          # modelos/artefatos (gerados)
-│   ├── model.pkl
-│   └── feature_cols.json
+│ ├── refined/ # features .parquet (gerado)
+│ └── rt_weather.duckdb # banco DuckDB (gerado)
+├── models/ # modelos/artefatos (gerados)
+│ ├── model.pkl
+│ └── feature_cols.json
 ├── scripts/
-│   └── migrate_duckdb.py            # migração de schema (opcional)
+│ └── migrate_duckdb.py # migração de schema (opcional)
 ├── src/
-│   ├── ingestion/
-│   │   └── api.py                   # FastAPI (coleta/backfill + persistência)
-│   ├── processing/
-│   │   └── prepare_data.py          # gera features a partir do DuckDB
-│   ├── training/
-│   │   └── train.py                 # treina modelo e salva artefatos
-│   └── app/
-│       ├── app.py                   # dashboard Streamlit
-│       └── conditions.py            # seção de condições (UI)
+│ ├── ingestion/
+│ │ └── api.py # FastAPI (coleta/backfill + persistência)
+│ ├── processing/
+│ │ └── prepare_data.py # gera features a partir do DuckDB
+│ ├── training/
+│ │ └── train.py # treina modelo e salva artefatos
+│ └── app/
+│ ├── app.py # dashboard Streamlit
+│ └── conditions.py # seção de condições (UI)
 ├── requirements.txt
 └── README.md
-\`\`\`
-> `data/rt_weather.duckdb` e `models/*` não devem ser versionados (veja `.gitignore`).
-
 ---
 
 ## Pré-requisitos
