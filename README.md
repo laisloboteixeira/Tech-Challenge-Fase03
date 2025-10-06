@@ -100,6 +100,102 @@ FastAPI (/collect, /backfill) ───► DuckDB (raw.weather_hourly)
 
 ---
 
+## Setup rápido
+### Windows (PowerShell)
+```powershell
+git clone https://github.com/laisloboteixeira/Tech-Challenge-Fase03.git
+cd Tech-Challenge-Fase03
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+# se precisar complementar:
+pip install streamlit fastapi uvicorn duckdb pandas requests altair
+```
+
+### Linux/macOS (bash)
+```bash
+git clone https://github.com/laisloboteixeira/Tech-Challenge-Fase03.git
+cd Tech-Challenge-Fase03
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+---
+
+## Como rodar
+
+### 1) Subir a API (FastAPI)
+```powershell
+uvicorn src.ingestion.api:app --reload --host 127.0.0.1 --port 8000
+```
+
+### 2) Trazer dados (Backfill / Collect)
+**Exemplo – São Paulo (últimos 30 dias):**
+```powershell
+Invoke-RestMethod -Method Post `
+  -Uri "http://127.0.0.1:8000/backfill?latitude=-23.55&longitude=-46.63&days=30"
+```
+
+### 3) Preparar features (ML opcional)
+```powershell
+$env:PYTHONPATH = (Get-Location)
+python -m src.processing.prepare_data
+```
+
+### 4) Treinar o modelo (ML opcional)
+```powershell
+python -m src.training.train
+```
+
+### 5) Rodar o app (Streamlit)
+```powershell
+streamlit run src/app/app.py
+```
+
+---
+
+## Endpoints da API
+Base: `http://127.0.0.1:8000`  
+Swagger: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
+
+---
+
+## Esquema do banco (DuckDB)
+| coluna | tipo | descrição |
+|--------|------|-----------|
+| ts | TIMESTAMP | hora UTC (naive) |
+| latitude | DOUBLE | lat normalizada |
+| longitude | DOUBLE | lon normalizada |
+| temperature_2m | DOUBLE | temperatura (°C) |
+| relative_humidity_2m | DOUBLE | umidade (%) |
+| precipitation | DOUBLE | precipitação (mm) |
+| wind_speed_10m | DOUBLE | vento (km/h) |
+| weathercode | SMALLINT | código WMO |
+| precipitation_probability | DOUBLE | prob. de chuva (%) |
+| cloudcover | DOUBLE | cobertura de nuvens (%) |
+
+---
+
+## Dashboard / App (UI)
+- **Condições atuais:** emoji + descrição (`weathercode`), sensação térmica, probabilidade de chuva e cobertura de nuvens.  
+- **Timeline de 6h:** previsões horárias com ícones e percentuais.  
+- **Gráfico de probabilidade:** barras (0–100%) com marcador do “agora”.  
+- **Previsão ML:** card aparece se o modelo existir (`models/model.pkl`).
+
+---
+
+## Critérios do Tech Challenge
+✔️ **Problema real (série temporal)**  
+✔️ **Coleta automatizada (API)**  
+✔️ **Banco local (DuckDB)**  
+✔️ **Feature Engineering + ML (opcional)**  
+✔️ **Dashboard interativo (Streamlit)**  
+✔️ **Documentação completa e funcional**  
+✔️ **Vídeo demonstrativo (YouTube)**  
+
+---
+
 ## Equipe
 
 | Integrante                   | RM      | Contato                               |
