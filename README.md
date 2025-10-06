@@ -31,7 +31,7 @@ Projeto completo para **coletar dados horários de clima**, armazenar em **DuckD
 
 ---
 
-## 🎥 Vídeo demonstrativo
+## Vídeo demonstrativo
 > Clique na imagem abaixo para assistir à demonstração completa do projeto no YouTube:
 
 [![Tech Challenge – Fase 3 (FIAP)](https://img.youtube.com/vi/U8TE81XCi4A/maxresdefault.jpg)](https://youtu.be/U8TE81XCi4A)
