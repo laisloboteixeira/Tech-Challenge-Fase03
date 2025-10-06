@@ -7,7 +7,7 @@ Projeto completo para **coletar dados horários de clima**, armazenar em **DuckD
 ---
 
 ## 🔗 Sumário
-- [🎥 Vídeo demonstrativo](#-vídeo-demonstrativo)
+- [Vídeo demonstrativo](#-vídeo-demonstrativo)
 - [Visão geral](#visão-geral)
 - [Arquitetura](#arquitetura)
 - [Estrutura do repositório](#estrutura-do-repositório)
@@ -26,11 +26,12 @@ Projeto completo para **coletar dados horários de clima**, armazenar em **DuckD
 - [Utilitários](#utilitários)
 - [Resolução de problemas](#resolução-de-problemas)
 - [Critérios do Tech Challenge](#critérios-do-tech-challenge)
+- [Equipe](#-equipe)
 - [Licença](#licença)
 
 ---
 
-## 🎥 Vídeo demonstrativo
+## Vídeo demonstrativo
 > Clique na imagem abaixo para assistir à demonstração completa do projeto no YouTube:
 
 [![Tech Challenge – Fase 3 (FIAP)](https://img.youtube.com/vi/U8TE81XCi4A/maxresdefault.jpg)](https://youtu.be/U8TE81XCi4A)
@@ -191,6 +192,15 @@ Swagger: [http://127.0.0.1:8000/docs](http://127.0.0.1:8000/docs)
 ✔️ **Dashboard interativo (Streamlit)**  
 ✔️ **Documentação completa e funcional**  
 ✔️ **Vídeo demonstrativo (YouTube)**  
+
+---
+## Equipe
+
+| Integrante                   | RM      | Contato                               |
+|-----------------------------|---------|----------------------------------------|
+| **Laís Lobo Teixeira**      | 363124  | [laisloboteixeira@gmail.com](mailto:laisloboteixeira@gmail.com) |
+| **Bruno Oliveira Fermino**  | 363137  | [of.bruno9@hotmail.com](mailto:of.bruno9@hotmail.com) |
+| **Victor Rodrigues Linhati**| 363151  | [victor_linhati@hotmail.com](mailto:victor_linhati@hotmail.com) |
 
 ---
 
